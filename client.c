@@ -6,6 +6,7 @@
 
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include "common_structs.h"
 
 int main(int argc, char  **argv) {
     int sock_d = socket(AF_INET, SOCK_STREAM, 0);
@@ -16,7 +17,20 @@ int main(int argc, char  **argv) {
     };
     inet_aton("127.0.0.1", &sock_addr.sin_addr);
 
-    connect(sock_d, (struct sockaddr *)&sock_addr, sizeof(sock_addr));
+    int err = connect(sock_d, (struct sockaddr *)&sock_addr, sizeof(sock_addr));
+    if (err < 0) {
+        printf("Error: can't connect to server - %d", err);
+    }
+
+    struct init_msg msg = {
+            .save_filename = "hello_world.txt",
+            .file_size = 300
+    };
+
+    err = send(sock_d, &msg, sizeof(struct init_msg), 0);
+    if (err < 0) {
+        printf("Error: can't send data - %d", err);
+    }
 
     return 0;
 }
