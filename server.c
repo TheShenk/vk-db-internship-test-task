@@ -27,13 +27,17 @@ int main(int argc, char  **argv) {
         printf("Error: can't listen - %d", err);
     }
 
+    int val = 1;
     setsockopt(sock_d, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
 
     while (1) {
         int conn_sock_d = accept(sock_d, NULL, NULL);
         if (conn_sock_d < 0) {
             printf("Error: can't accept - %d", err);
+            continue;
         }
+
+        printf("Connection from client\n");
     }
 
     return 0;
