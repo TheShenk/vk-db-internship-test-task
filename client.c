@@ -6,7 +6,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
+#include <getopt.h>
 
 #include <sys/socket.h>
 #include <sys/sendfile.h>

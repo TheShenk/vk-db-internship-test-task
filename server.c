@@ -3,24 +3,62 @@
 //
 
 #include <stdio.h>
+#include <errno.h>
+#include <getopt.h>
+#include <stdlib.h>
 
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <errno.h>
+#include <string.h>
+#include <sys/stat.h>
+
 #include "common_structs.h"
 
 #define READ_DATA_CHUNK 255
 
 int main(int argc, char  **argv) {
+
+    unsigned int port = 31415;
+    char *save_dir = "./";
+    char *opts = "p:d:";
+
+    char opt = getopt(argc, argv, opts);
+    while (opt > 0) {
+        switch (opt) {
+            case 'p':
+                port = strtoul(optarg, NULL, 10);
+                break;
+            case 'd':
+                save_dir = optarg;
+                break;
+        }
+        opt = getopt(argc, argv, opts);
+    }
+
+    printf("Listen port: %d\n", port);
+    printf("Saving to: %s\n", save_dir);
+
+    struct stat dir = {0};
+    if(stat(save_dir, &dir) == -1)
+    {
+        int mkdir_err = mkdir(save_dir, 0755);
+        if (mkdir_err < 0) {
+            printf("Error: can't create directory - %d\n", errno);
+            return mkdir_err;
+        } else {
+            printf("Directory created\n");
+        }
+    }
+
     int sock_d = socket(AF_INET, SOCK_STREAM, 0);
     if (sock_d < 0) {
-        printf("Error: can't create socket - %d", sock_d);
+        printf("Error: can't create socket - %d\n", errno);
         return sock_d;
     }
 
     struct sockaddr_in addr = {
             .sin_family = AF_INET,
-            .sin_port = htons(31415),
+            .sin_port = htons(port),
             .sin_addr = {
                     .s_addr = INADDR_ANY
             }
@@ -28,7 +66,7 @@ int main(int argc, char  **argv) {
 
     int err = bind(sock_d, (struct sockaddr *)&addr, sizeof(addr));
     if (err < 0) {
-        printf("Error: can't bind socket - %d", errno);
+        printf("Error: can't bind socket - %d\n", errno);
         return err;
     }
 
@@ -55,7 +93,12 @@ int main(int argc, char  **argv) {
             continue;
         }
 
-        FILE  *file = fopen(msg.save_filename, "w");
+        // Выделение памяти под путь к файлу. Здесь +2 - дополнительные символы под "/" и "\0"
+        char *filepath = malloc((strlen(save_dir) + strlen(msg.save_filename) + 2) * sizeof(char));
+        sprintf(filepath, "%s/%s", save_dir, msg.save_filename);
+        printf("Save path: %s\n", filepath);
+
+        FILE  *file = fopen(filepath, "w");
         if (!file) {
             printf("Error: can't open file - %d\n", errno);
             continue;
@@ -80,6 +123,8 @@ int main(int argc, char  **argv) {
         }
 
         fclose(file);
+        free(filepath);
+
         printf("From client: file name - %s, file size - %d, read - %d\n", msg.save_filename, msg.file_size, total_read_size);
     }
 
