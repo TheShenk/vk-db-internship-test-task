@@ -3,18 +3,55 @@
 //
 
 #include <stdio.h>
+#include <errno.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 #include <sys/socket.h>
 #include <sys/sendfile.h>
 #include <arpa/inet.h>
 #include <sys/stat.h>
-#include <errno.h>
-#include <string.h>
+
 #include "common_structs.h"
 
 int main(int argc, char  **argv) {
 
-    char *filename = "test.txt";
+    char *addr = "127.0.0.1";
+    unsigned int port = 31415;
+
+    char *filename = NULL;
+    char *save_filename = NULL;
+
+    char *opts = "-a:p:s:";
+
+    char opt = getopt(argc, argv, opts);
+    while (opt > 0) {
+        switch (opt) {
+            case 'a':
+                addr = optarg;
+                break;
+            case 'p':
+                port = strtol(optarg, NULL, 10);
+                break;
+            case 's':
+                save_filename = optarg;
+                break;
+            case '\1':
+                filename = optarg;
+                break;
+        }
+        opt = getopt(argc, argv, opts);
+    }
+
+    if (!filename) {
+        printf("Usage: %s [-a address] [-p port] [-s save filename] filename\n", argv[0]);
+        return 0;
+    }
+    if (!save_filename) save_filename = filename;
+
+    printf("File to send: %s\n", filename);
+    printf("Save as: %s\n", save_filename);
 
     int sock_d = socket(AF_INET, SOCK_STREAM, 0);
     if (sock_d < 0) {
@@ -24,9 +61,9 @@ int main(int argc, char  **argv) {
 
     struct sockaddr_in sock_addr = {
             .sin_family = AF_INET,
-            .sin_port = htons(31415)
+            .sin_port = htons(port)
     };
-    inet_aton("127.0.0.1", &sock_addr.sin_addr);
+    inet_aton(addr, &sock_addr.sin_addr);
 
     int err = connect(sock_d, (struct sockaddr *)&sock_addr, sizeof(sock_addr));
     if (err < 0) {
@@ -50,7 +87,7 @@ int main(int argc, char  **argv) {
             .file_size = size
     };
 
-    strncpy(msg.save_filename, filename, MAX_FILENAME_LEN-1);
+    strncpy(msg.save_filename, save_filename, MAX_FILENAME_LEN-1);
     msg.save_filename[MAX_FILENAME_LEN-1] = '\0';
 
     ssize_t init_sent_size = send(sock_d, &msg, sizeof(struct init_msg), 0);
