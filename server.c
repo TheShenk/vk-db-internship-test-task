@@ -38,9 +38,10 @@ int main(int argc, char  **argv) {
     printf("Listen port: %d\n", port);
     printf("Saving to: %s\n", save_dir);
 
+    // В случае, если папки не существует, то пробуем создать
     struct stat dir = {0};
-    if(stat(save_dir, &dir) == -1)
-    {
+    // Проверку на существование - попытка получение информации о папке
+    if(stat(save_dir, &dir) == -1) {
         int mkdir_err = mkdir(save_dir, 0755);
         if (mkdir_err < 0) {
             printf("Error: can't create directory - %d\n", errno);
@@ -50,6 +51,7 @@ int main(int argc, char  **argv) {
         }
     }
 
+    // Создание сокета. 0 - протокол по умолчанию для данного типа. Для SOCK_STREAM - TCP.
     int sock_d = socket(AF_INET, SOCK_STREAM, 0);
     if (sock_d < 0) {
         printf("Error: can't create socket - %d\n", errno);
@@ -64,12 +66,14 @@ int main(int argc, char  **argv) {
             }
     };
 
+    // Привязка сокета к порту
     int err = bind(sock_d, (struct sockaddr *)&addr, sizeof(addr));
     if (err < 0) {
         printf("Error: can't bind socket - %d\n", errno);
         return err;
     }
 
+    // Так как TCP протокол использует соединения, то начинаем слушать его. 1 - число одновременных соединений.
     err = listen(sock_d, 1);
     if (err < 0) {
         printf("Error: can't listen - %d\n", errno);
@@ -79,13 +83,17 @@ int main(int argc, char  **argv) {
     int val = 1;
     setsockopt(sock_d, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
 
+    // Бесконечный цикл - ожидаем новых файлов
     while (1) {
+        // Принимаем соединение, accept возвращает дескриптор нового сокета, который нужно использовать для
+        // приема/отправки данных
         int conn_sock_d = accept(sock_d, NULL, NULL);
         if (conn_sock_d < 0) {
             printf("Error: can't accept - %d\n", errno);
             continue;
         }
 
+        // Ожидаем первого сообщения, которое передаст имя и размер файла
         struct init_msg msg;
         ssize_t recv_size = recv(conn_sock_d, &msg, sizeof(struct init_msg), 0);
         if (recv_size < 0) {
@@ -107,6 +115,7 @@ int main(int argc, char  **argv) {
         unsigned int total_read_size = 0;
         char data_chunk[READ_DATA_CHUNK] = {0};
 
+        // Читаем данные из сокета, до тех пор, пока количество прочитанных байт меньше размера файла
         while (total_read_size < msg.file_size) {
             size_t read_size = recv(conn_sock_d, data_chunk, READ_DATA_CHUNK, 0);
             if (read_size < 0) {
@@ -114,11 +123,14 @@ int main(int argc, char  **argv) {
                 break;
             }
 
+            // Записываем столько байт, сколько прочитали
             int write_size = fwrite(data_chunk, read_size, 1, file);
             if (write_size < 0) {
                 printf("Error: can't write to file - %d\n", errno);
                 break;
             }
+
+            // Запоминаем общее число прочитанных байт
             total_read_size += read_size;
         }
 

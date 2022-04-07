@@ -4,7 +4,9 @@ project(vk_db_internship_test_task C)
 set(CMAKE_C_STANDARD 11)
 
 add_executable(server
-        server.c)
+        server.c
+        common_structs.h)
 
 add_executable(client
-        client.c)
+        client.c
+        common_structs.h)
