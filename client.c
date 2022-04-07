@@ -74,6 +74,7 @@ int main(int argc, char  **argv) {
     int is_addr_ok = inet_aton(addr, &sock_addr.sin_addr);
     if (!is_addr_ok) {
         printf("Error: wrong address - %d\n", errno);
+        close(sock_d);
         return 0;
     }
 
@@ -81,12 +82,14 @@ int main(int argc, char  **argv) {
     int err = connect(sock_d, (struct sockaddr *)&sock_addr, sizeof(sock_addr));
     if (err < 0) {
         printf("Error: can't connect to server - %d\n", errno);
+        close(sock_d);
         return err;
     }
 
     FILE *file = fopen(filename, "r");
     if (!file) {
         printf("Error: can't open file\n");
+        close(sock_d);
         return -1;
     }
 
@@ -113,6 +116,8 @@ int main(int argc, char  **argv) {
     ssize_t init_sent_size = send(sock_d, &msg, sizeof(struct init_msg), 0);
     if (init_sent_size < 0) {
         printf("Error: can't send init data - %d\n", errno);
+        close(sock_d);
+        fclose(file);
         return init_sent_size;
     }
 

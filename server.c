@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "common_structs.h"
 
@@ -70,6 +71,7 @@ int main(int argc, char  **argv) {
     int err = bind(sock_d, (struct sockaddr *)&addr, sizeof(addr));
     if (err < 0) {
         printf("Error: can't bind socket - %d\n", errno);
+        close(sock_d);
         return err;
     }
 
@@ -77,6 +79,7 @@ int main(int argc, char  **argv) {
     err = listen(sock_d, 1);
     if (err < 0) {
         printf("Error: can't listen - %d\n", errno);
+        close(sock_d);
         return err;
     }
 
@@ -98,17 +101,25 @@ int main(int argc, char  **argv) {
         ssize_t recv_size = recv(conn_sock_d, &msg, sizeof(struct init_msg), 0);
         if (recv_size < 0) {
             printf("Error: can't read init msg - %d\n", errno);
+            close(conn_sock_d);
             continue;
         }
 
         // Выделение памяти под путь к файлу. Здесь +2 - дополнительные символы под "/" и "\0"
         char *filepath = malloc((strlen(save_dir) + strlen(msg.save_filename) + 2) * sizeof(char));
+        if (!filepath) {
+            printf("Error: can't malloc\n");
+            close(conn_sock_d);
+            continue;
+        }
         sprintf(filepath, "%s/%s", save_dir, msg.save_filename);
         printf("Save path: %s\n", filepath);
 
         FILE  *file = fopen(filepath, "w");
         if (!file) {
             printf("Error: can't open file - %d\n", errno);
+            close(conn_sock_d);
+            free(filepath);
             continue;
         }
 
@@ -120,14 +131,20 @@ int main(int argc, char  **argv) {
             size_t read_size = recv(conn_sock_d, data_chunk, READ_DATA_CHUNK, 0);
             if (read_size < 0) {
                 printf("Error: can't read data - %d\n", errno);
-                break;
+                fclose(file);
+                free(filepath);
+                close(conn_sock_d);
+                continue;
             }
 
             // Записываем столько байт, сколько прочитали
             int write_size = fwrite(data_chunk, read_size, 1, file);
             if (write_size < 0) {
                 printf("Error: can't write to file - %d\n", errno);
-                break;
+                fclose(file);
+                free(filepath);
+                close(conn_sock_d);
+                continue;
             }
 
             // Запоминаем общее число прочитанных байт
@@ -135,10 +152,11 @@ int main(int argc, char  **argv) {
             printf("Received %lu bytes, %.1f%% of file\n", read_size, (float)total_read_size/msg.file_size*100);
         }
 
+        printf("From client: file name - %s, file size - %llu, read - %llu\n", msg.save_filename, msg.file_size, total_read_size);
+
         fclose(file);
         free(filepath);
-
-        printf("From client: file name - %s, file size - %llu, read - %llu\n", msg.save_filename, msg.file_size, total_read_size);
+        close(conn_sock_d);
     }
 
     return 0;
