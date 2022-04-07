@@ -15,6 +15,7 @@
 #include <sys/stat.h>
 
 #include "common_structs.h"
+#define SEND_DATA_SIZE 100000
 
 int main(int argc, char  **argv) {
 
@@ -95,7 +96,7 @@ int main(int argc, char  **argv) {
     // Получение размера файла
     struct stat buf;
     fstat(file_d, &buf);
-    off_t size = buf.st_size;
+    unsigned long long size = buf.st_size;
 
     // Создание первого сообщения сервера
     struct init_msg msg = {
@@ -119,8 +120,12 @@ int main(int argc, char  **argv) {
     // kernel в user-space при чтении из него, а потом копирования из user в kernel-space при отправке данных
     // через send
     off_t offset = 0;
-    ssize_t sent_size = sendfile(sock_d, file_d, &offset, size);
-    printf("Sent %lu bytes\n", sent_size);
+    unsigned long long total_send_size = 0;
+    while (total_send_size < size) {
+        ssize_t sent_size = sendfile(sock_d, file_d, &offset, SEND_DATA_SIZE);
+        total_send_size += sent_size;
+        printf("Sent %lu bytes, %.1f%% of file\n", sent_size, (float)total_send_size/size*100);
+    }
 
     fclose(file);
     close(sock_d);

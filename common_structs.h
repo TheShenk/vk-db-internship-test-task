@@ -9,7 +9,7 @@
 
 struct init_msg {
     char save_filename[MAX_FILENAME_LEN];
-    unsigned int file_size;
+    unsigned long long file_size;
 };
 
 #endif //VK_DB_INTERNSHIP_TEST_TASK_COMMON_STRUCTS_H

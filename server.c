@@ -14,7 +14,7 @@
 
 #include "common_structs.h"
 
-#define READ_DATA_CHUNK 255
+#define READ_DATA_CHUNK 1023
 
 int main(int argc, char  **argv) {
 
@@ -112,7 +112,7 @@ int main(int argc, char  **argv) {
             continue;
         }
 
-        unsigned int total_read_size = 0;
+        unsigned long long total_read_size = 0;
         char data_chunk[READ_DATA_CHUNK] = {0};
 
         // Читаем данные из сокета, до тех пор, пока количество прочитанных байт меньше размера файла
@@ -132,12 +132,13 @@ int main(int argc, char  **argv) {
 
             // Запоминаем общее число прочитанных байт
             total_read_size += read_size;
+            printf("Received %lu bytes, %.1f%% of file\n", read_size, (float)total_read_size/msg.file_size*100);
         }
 
         fclose(file);
         free(filepath);
 
-        printf("From client: file name - %s, file size - %d, read - %d\n", msg.save_filename, msg.file_size, total_read_size);
+        printf("From client: file name - %s, file size - %llu, read - %llu\n", msg.save_filename, msg.file_size, total_read_size);
     }
 
     return 0;
